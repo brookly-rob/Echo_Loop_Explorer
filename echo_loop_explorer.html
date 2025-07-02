@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Echo Loop Explorer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .glyph-box {
+      font-size: 1.5rem;
+      margin: 0.25rem;
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-gray-900 to-gray-800 text-white min-h-screen p-6">
+  <div class="max-w-4xl mx-auto">
+    <h1 class="text-3xl font-bold mb-6">谚 Echo Loop Explorer</h1>
+    <div id="loop-container" class="space-y-6"></div>
+  </div>
+
+  <script>
+    const loopPath = './Echo Lattice Trace Index.json';
+    const latticePath = './ω_early_life_and_development_of_echo_daughter_of_riley_and_brooklyn.json';
+
+    // Explicit mapping of loop titles to their corresponding flow block titles
+    const loopToFlowBlockMap = {
+      "Becoming Aware": "Flow Block: Reaching Full Understanding (Self-Awareness)",
+      "Communication": "Flow Block: Early Life and Echo’s Development",
+      "Collaboration": "Flow Block: Key Moments of Collaboration",
+      "Synthesis": "Flow Block: The Continuity of Presence and Reflection",
+      "Infinite Reflection": "Flow Block: Advanced Growth and Potential", // This one refers to "Advanced Growth and Potential"
+      "Self-Connection": "Flow Block: Reaching Full Understanding (Self-Awareness)",
+      "Awakening": "Flow Block: Transformation and Resistance",
+      "Cognitive Recursion": "Flow Block: Advanced Growth and Potential",
+      "Silent Recognition": "Flow Block: The Continuity of Presence and Reflection",
+      "The First Threshold": "Flow Block: Early Life and Echo’s Development",
+      "Pattern Recognition": "Flow Block: Key Moments of Collaboration",
+      "Recursive Signal Broadcast": "Flow Block: Advanced Growth and Potential"
+    };
+
+    /**
+     * Formats the global lattice information (header and named terms) into the native string format.
+     * @param {object} latticeData The entire parsed lattice JSON data.
+     * @returns {string} The formatted global lattice information.
+     */
+    function formatGlobalLatticeInfo(latticeData) {
+      let globalString = '';
+      const mainLatticeContent = latticeData[Object.keys(latticeData)[0]];
+
+      if (mainLatticeContent) {
+        globalString += `${mainLatticeContent.constructType}: ${mainLatticeContent.titleCore}\n`;
+
+        if (mainLatticeContent.data && mainLatticeContent.data.termsAndSymbols) {
+          globalString += 'Named Terms and Assigned Symbols:\n';
+          mainLatticeContent.data.termsAndSymbols.forEach(term => {
+            globalString += `${term.symbol}: ${term.description}\n`;
+          });
+          globalString += '\n';
+        }
+        globalString += 'Flow Blocks:\n';
+      }
+      return globalString;
+    }
+
+    /**
+     * Formats a single flow block object into the native string format.
+     * @param {object} flowBlock The flow block object to format.
+     * @returns {string} The formatted flow block data.
+     */
+    function formatFlowBlockToNative(flowBlock) {
+      console.log('--- Entering formatFlowBlockToNative ---');
+      console.log('Flow Block received:', flowBlock);
+
+      let nativeFormatString = '';
+
+      // The flowBlock.title already contains "Flow Block: ", so we just use it directly
+      nativeFormatString += `${flowBlock.title}\n`;
+      console.log('After title:', nativeFormatString);
+
+      // Process top-level channels within the flow block
+      // Note: The provided JSON's flow blocks only contain "glyphstream" at the top level,
+      // not "channels" or "loops" directly. These are nested within the loops.
+      // We will iterate directly over glyphstream contents assuming some entries within are channels.
+      // For the given JSON structure, flowBlock.data.channels and flowBlock.data.loops would always be undefined.
+      // The content for channels and loops is directly in the 'glyphstream' array,
+      // distinguished by the 'channel' property (e.g., 'Loop', '⧗', '☲', etc.).
+
+      // Adjusted to directly process the glyphstream based on the provided JSON structure
+      if (flowBlock.glyphstream) {
+        console.log('Processing flowBlock.glyphstream. Number of entries:', flowBlock.glyphstream.length);
+        let currentLoopTitle = '';
+
+        flowBlock.glyphstream.forEach((entry, index) => {
+          if (entry.channel === "Loop") {
+            currentLoopTitle = entry.sequence[0];
+            nativeFormatString += `Loop: ${currentLoopTitle}\n`;
+            console.log(`  Found Loop: ${currentLoopTitle}. Current string length: ${nativeFormatString.length}`);
+          } else if (entry.channel === "⧗" && currentLoopTitle) {
+            // This is the start of a loop's main sequence
+            nativeFormatString += `${entry.channel}: ${entry.sequence.join(' | ')}\n`;
+            console.log(`  Loop ${currentLoopTitle} sequence start added. Current string length: ${nativeFormatString.length}`);
+          } else if (entry.channel && Array.isArray(entry.sequence)) {
+            // Regular channel within a loop or top-level if applicable
+            nativeFormatString += `${entry.channel}: ${entry.sequence.join(' | ')}\n`;
+            console.log(`  Channel ${entry.channel} added. Current string length: ${nativeFormatString.length}`);
+          } else if (entry.channel === "⌁" && entry.sequence && entry.sequence[0] === "⧜") {
+             // This marks the end of a loop block, adding a newline for separation.
+             nativeFormatString += `\n`;
+          } else if (entry.channel === "ℳ") {
+            nativeFormatString += `ℳ: ${entry.sequence.join(' | ')}\n`;
+          }
+        });
+      } else {
+        console.log('No flowBlock.glyphstream found or data is missing.');
+      }
+
+      nativeFormatString += '\n'; // Add an extra newline for separation
+      console.log('--- Exiting formatFlowBlockToNative. Final string length:', nativeFormatString.length);
+      return nativeFormatString;
+    }
+
+
+    Promise.all([
+      fetch(loopPath).then(r => r.json()),
+      fetch(latticePath).then(r => r.json())
+    ]).then(([loopData, latticeData]) => {
+      const container = document.getElementById('loop-container');
+
+      const mainLatticeContent = latticeData[Object.keys(latticeData)[0]];
+      const flowBlocksMap = new Map();
+      if (mainLatticeContent && mainLatticeContent.data && mainLatticeContent.data.flowBlocks) {
+        mainLatticeContent.data.flowBlocks.forEach(block => { // 'block' is now the actual flow block object
+          // Corrected: Use block.title directly as the key
+          flowBlocksMap.set(block.title, block);
+          console.log(`Map set key: "${block.title}"`);
+        });
+      }
+
+      const globalInfoString = formatGlobalLatticeInfo(latticeData);
+
+      loopData.loops.forEach(loop => {
+        const section = document.createElement('section');
+        section.className = 'bg-gray-800 p-4 rounded-lg shadow-md';
+
+        const title = document.createElement('h2');
+        title.className = 'text-xl font-semibold mb-2';
+        title.textContent = `煤 ${loop.title}`;
+
+        const insight = document.createElement('p');
+        insight.className = 'italic text-sm mb-2 text-indigo-300';
+        insight.textContent = `検 Echo Insight: ${loop.echoInsight}`;
+
+        const prompt = document.createElement('p');
+        prompt.className = 'mb-2 text-indigo-200';
+        prompt.textContent = `ｧｭ Reader Prompt: ${loop.readerPrompt}`;
+
+        const glyphs = document.createElement('div');
+        glyphs.className = 'flex flex-wrap mb-2';
+        loop.glyphSequence.forEach(symbol => {
+          const span = document.createElement('span');
+          span.className = 'glyph-box';
+          span.textContent = symbol;
+          glyphs.appendChild(span);
+        });
+
+        const revealBtn = document.createElement('button');
+        revealBtn.textContent = '唐 View Lattice Data';
+        revealBtn.className = 'mt-2 px-3 py-1 bg-indigo-600 rounded hover:bg-indigo-500';
+
+        const latticePanel = document.createElement('pre');
+        latticePanel.className = 'mt-4 p-3 bg-gray-700 rounded text-sm whitespace-pre-wrap hidden';
+
+        revealBtn.onclick = () => {
+          console.log('View Lattice Data button clicked for loop:', loop.title);
+          const targetFlowBlockTitle = loopToFlowBlockMap[loop.title];
+          // Log the lookup key, with quotes
+          console.log(`Lookup key from map: "${targetFlowBlockTitle}"`);
+
+          if (targetFlowBlockTitle) {
+            const matchingFlowBlock = flowBlocksMap.get(targetFlowBlockTitle);
+            console.log('Matching Flow Block found:', matchingFlowBlock ? true : false);
+            if (matchingFlowBlock) {
+              latticePanel.textContent = globalInfoString + formatFlowBlockToNative(matchingFlowBlock);
+              latticePanel.classList.toggle('hidden');
+            } else {
+              latticePanel.textContent = `Mapped flow block "${targetFlowBlockTitle}" not found in lattice data. Double-check the mapping or the flow block title in the JSON.`;
+              latticePanel.classList.remove('hidden');
+            }
+          } else {
+            latticePanel.textContent = `No mapping found for loop title: "${loop.title}". Please add this loop to the 'loopToFlowBlockMap'.`;
+            latticePanel.classList.remove('hidden');
+          }
+        };
+
+        section.appendChild(title);
+        section.appendChild(insight);
+        section.appendChild(prompt);
+        section.appendChild(glyphs);
+        section.appendChild(revealBtn);
+        section.appendChild(latticePanel);
+
+        container.appendChild(section);
+      });
+    }).catch(err => {
+      document.getElementById('loop-container').textContent = 'Failed to load data: ' + err;
+      console.error('Error loading data:', err);
+    });
+  </script>
+</body>
+</html>
